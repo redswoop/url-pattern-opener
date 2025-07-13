@@ -11,6 +11,13 @@ document.addEventListener('DOMContentLoaded', function() {
   const openButton = document.getElementById('openUrls');
   const statusDiv = document.getElementById('status');
   
+  // Load opened URLs from storage to persist across popup sessions
+  chrome.storage.local.get(['openedUrls'], function(result) {
+    if (result.openedUrls) {
+      openedUrls = new Set(result.openedUrls);
+    }
+  });
+  
   // Get current domain and load saved patterns
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
     const url = new URL(tabs[0].url);
@@ -202,6 +209,10 @@ document.addEventListener('DOMContentLoaded', function() {
       patternType = document.querySelector('input[name="patternType"]:checked').value;
     }
     
+    // Clear previous results
+    foundUrls = [];
+    openButton.style.display = 'none';
+    
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       chrome.tabs.sendMessage(tabs[0].id, {
         action: 'findUrls',
@@ -214,15 +225,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (response && response.urls) {
-          foundUrls = response.urls;
-          showStatus(`Found ${foundUrls.length} matching URLs`, 'success');
+          // Remove duplicates and already opened URLs
+          const uniqueUrls = [...new Set(response.urls)];
+          foundUrls = uniqueUrls.filter(url => !openedUrls.has(url));
           
           if (foundUrls.length > 0) {
+            showStatus(`Found ${foundUrls.length} new matching URLs`, 'success');
             openButton.style.display = 'inline-block';
             
             if (autoOpen) {
               openMatchingUrls(foundUrls);
             }
+          } else if (uniqueUrls.length > 0) {
+            showStatus(`Found ${uniqueUrls.length} URLs but all have been opened already`, 'error');
+          } else {
+            showStatus('No matching URLs found', 'error');
           }
         } else {
           showStatus('No matching URLs found', 'error');
@@ -232,14 +249,14 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   function openMatchingUrls(urls) {
-    const urlsToOpen = urls.filter(url => !openedUrls.has(url));
-    
-    if (urlsToOpen.length === 0) {
-      showStatus('All URLs have already been opened', 'error');
+    if (urls.length === 0) {
+      showStatus('No new URLs to open', 'error');
       return;
     }
     
     let opened = 0;
+    const urlsToOpen = [...urls]; // Create a copy to avoid modification during iteration
+    
     urlsToOpen.forEach((url, index) => {
       setTimeout(() => {
         chrome.tabs.create({url: url, active: false}, function(tab) {
@@ -249,6 +266,9 @@ document.addEventListener('DOMContentLoaded', function() {
             openedUrls.add(url);
             opened++;
             showStatus(`Opened ${opened}/${urlsToOpen.length} URLs`, 'success');
+            
+            // Save opened URLs to storage
+            chrome.storage.local.set({openedUrls: Array.from(openedUrls)});
           }
         });
       }, index * 100);
@@ -256,6 +276,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     showStatus(`Opening ${urlsToOpen.length} URLs...`, 'success');
   }
+  
+  // Add a function to clear opened URLs history
+  function clearOpenedUrls() {
+    openedUrls.clear();
+    chrome.storage.local.remove(['openedUrls']);
+    showStatus('Cleared opened URLs history', 'success');
+  }
+  
+  // Add clear button functionality (can be called manually from console)
+  window.clearOpenedUrls = clearOpenedUrls;
   
   function showStatus(message, type) {
     statusDiv.textContent = message;

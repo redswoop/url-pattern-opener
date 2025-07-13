@@ -22,29 +22,34 @@ function findMatchingUrls(pattern, patternType) {
       return;
     }
     
+    // Normalize URL
+    const normalizedUrl = normalizeUrl(href);
+    
     // Check if URL matches pattern
-    if (matchesPattern(href, pattern, patternType)) {
-      if (!foundUrls.has(href)) {
-        foundUrls.add(href);
-        urls.push(href);
+    if (matchesPattern(normalizedUrl, pattern, patternType)) {
+      if (!foundUrls.has(normalizedUrl)) {
+        foundUrls.add(normalizedUrl);
+        urls.push(normalizedUrl);
       }
     }
   });
   
   // Also check for URLs in text content (optional)
   const textNodes = getTextNodes(document.body);
-  const urlRegex = /https?:\/\/[^\s<>"']+/g;
+  const urlRegex = /https?:\/\/[^\s<>"'()[\]{}]+/g;
   
   textNodes.forEach(node => {
     const matches = node.textContent.match(urlRegex);
     if (matches) {
       matches.forEach(url => {
-        // Clean up the URL (remove trailing punctuation)
+        // Clean up and normalize the URL
         const cleanUrl = url.replace(/[.,;!?]+$/, '');
-        if (matchesPattern(cleanUrl, pattern, patternType)) {
-          if (!foundUrls.has(cleanUrl)) {
-            foundUrls.add(cleanUrl);
-            urls.push(cleanUrl);
+        const normalizedUrl = normalizeUrl(cleanUrl);
+        
+        if (matchesPattern(normalizedUrl, pattern, patternType)) {
+          if (!foundUrls.has(normalizedUrl)) {
+            foundUrls.add(normalizedUrl);
+            urls.push(normalizedUrl);
           }
         }
       });
@@ -52,6 +57,28 @@ function findMatchingUrls(pattern, patternType) {
   });
   
   return urls;
+}
+
+function normalizeUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    // Remove common tracking parameters
+    const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'];
+    paramsToRemove.forEach(param => {
+      urlObj.searchParams.delete(param);
+    });
+    
+    // Remove trailing slash for consistency
+    let normalizedUrl = urlObj.toString();
+    if (normalizedUrl.endsWith('/') && urlObj.pathname === '/') {
+      normalizedUrl = normalizedUrl.slice(0, -1);
+    }
+    
+    return normalizedUrl;
+  } catch (e) {
+    // If URL parsing fails, return original
+    return url;
+  }
 }
 
 function matchesPattern(url, pattern, patternType) {
