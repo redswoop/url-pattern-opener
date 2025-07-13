@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "URL Pattern Opener",
+  "version": "1.0",
+  "description": "Open all URLs on a page that match a specified pattern",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "notifications"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "URL Pattern Opener"
+  },
+  "commands": {
+    "run-default-pattern": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+U"
+      },
+      "description": "Run default pattern for current domain"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
