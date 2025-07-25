@@ -1,10 +1,15 @@
 // Content script to find URLs on the page
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  if (request.action === 'findUrls') {
-    const urls = findMatchingUrls(request.pattern, request.patternType);
-    sendResponse({urls: urls});
-  }
-});
+// Prevent multiple listeners by checking if already registered
+if (!window.urlPatternOpenerLoaded) {
+  window.urlPatternOpenerLoaded = true;
+  
+  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    if (request.action === 'findUrls') {
+      const urls = findMatchingUrls(request.pattern, request.patternType);
+      sendResponse({urls: urls});
+    }
+  });
+}
 
 function findMatchingUrls(pattern, patternType) {
   const urls = [];
