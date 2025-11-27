@@ -67,15 +67,36 @@ function findMatchingUrls(pattern, patternType) {
 function normalizeUrl(url) {
   try {
     const urlObj = new URL(url);
-    // Remove common tracking parameters
-    const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'];
+    
+    // Remove fragment (everything after #)
+    urlObj.hash = '';
+    
+    // Remove common tracking and navigation parameters
+    const paramsToRemove = [
+      'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 
+      'fbclid', 'gclid', 'view', 'newest', 'ref', 'source', 'from'
+    ];
     paramsToRemove.forEach(param => {
       urlObj.searchParams.delete(param);
     });
     
-    // Remove trailing slash for consistency
+    // For forum-like URLs, keep only essential parameters (like topic ID)
+    if (urlObj.pathname.includes('viewtopic') || urlObj.pathname.includes('topic')) {
+      const essentialParams = ['t', 'id', 'thread', 'topic'];
+      const newSearchParams = new URLSearchParams();
+      
+      essentialParams.forEach(param => {
+        if (urlObj.searchParams.has(param)) {
+          newSearchParams.set(param, urlObj.searchParams.get(param));
+        }
+      });
+      
+      urlObj.search = newSearchParams.toString();
+    }
+    
+    // Remove trailing slash for consistency (except for root paths)
     let normalizedUrl = urlObj.toString();
-    if (normalizedUrl.endsWith('/') && urlObj.pathname === '/') {
+    if (normalizedUrl.endsWith('/') && urlObj.pathname.length > 1) {
       normalizedUrl = normalizedUrl.slice(0, -1);
     }
     
